@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "WebFetch(domain:imgur.com)",
+      "Bash(npm run *)"
+    ]
+  }
+}

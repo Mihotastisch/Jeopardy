@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --outer-bg: #343716;
+  --board-bg: #F7EBCF;
+  --frame-dark: #7A4A12;
+  --frame-light: #B87925;
+  --text-dark: #263415;
+  --text-light: #FFF7E8;
+  --gold-line: #B78B3D;
+  --card-border: #D6AF62;
+  --soft-shadow: rgba(70, 45, 10, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  background: var(--outer-bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
