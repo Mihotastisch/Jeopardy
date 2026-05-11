@@ -1,32 +1,33 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-const T = {
-  outerBg: '#343716',
-  boardBg: '#F7EBCF',
-  frameDark: '#7A4A12',
-  frameLight: '#B87925',
-  textDark: '#263415',
-  textLight: '#FFF7E8',
-  goldLine: '#B78B3D',
-  cardBorder: '#D6AF62',
-  softShadow: 'rgba(70, 45, 10, 0.25)',
-}
+const FONT_DISPLAY = "'Lilita One', cursive"
+const FONT_BODY = "'Poppins', system-ui, sans-serif"
 
-const COL_STYLES = [
-  { gradient: 'linear-gradient(145deg, #4F5F16, #6A7822)', text: '#FFF7E8' },
-  { gradient: 'linear-gradient(145deg, #6F8C5D, #8EAA78)', text: '#FFF7E8' },
-  { gradient: 'linear-gradient(145deg, #C8BD55, #DDD477)', text: '#FFF7E8' },
-  { gradient: 'linear-gradient(145deg, #E4B85A, #F3D28B)', text: '#FFF7E8' },
-  { gradient: 'linear-gradient(145deg, #9DA11C, #B4B83A)', text: '#FFF7E8' },
-  { gradient: 'linear-gradient(145deg, #EAA000, #F5B400)', text: '#FFF7E8' },
-]
+const WOOD_BG = [
+  'radial-gradient(ellipse at 50% 50%, transparent 18%, rgba(0,0,0,0.72) 100%)',
+  'repeating-linear-gradient(180deg, transparent 0px, transparent 92px, rgba(0,0,0,0.3) 92px, rgba(0,0,0,0.3) 96px)',
+  'repeating-linear-gradient(180deg, rgba(255,160,60,0.03) 0px, rgba(255,160,60,0.03) 1px, transparent 1px, transparent 16px)',
+  'linear-gradient(174deg, rgba(70,28,6,0.55) 0%, rgba(40,14,3,0.2) 45%, rgba(58,20,5,0.55) 100%)',
+  '#3A1906',
+].join(', ')
 
-const CELL_SHADOW = '0 3px 4px rgba(70, 45, 10, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.12)'
-const CELL_SHADOW_HOVER = '0 7px 14px rgba(70, 45, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.15)'
-const PLAYED_SHADOW = '0 1px 2px rgba(70, 45, 10, 0.1)'
+// Uniform board colors — matching reference image
+const CAT_HEADER_BG = 'linear-gradient(175deg, #344C0C 0%, #476018 100%)'
+const CELL_BG_ACTIVE = 'linear-gradient(175deg, #6A7A1C 0%, #849A28 100%)'
+const CELL_BG_PLAYED = 'linear-gradient(175deg, #5A5E40 0%, #6E7252 100%)'
 
-const FONT = "'Poppins', system-ui, sans-serif"
+const BOARD_BG = '#EAE0B0'
+const FRAME_DARK = '#6A3006'
+const FRAME_LIGHT = '#A06820'
+const TEXT_DARK = '#1E3006'
+const TEXT_CREAM = '#F8F0D0'
+const GOLD = '#B88830'
+const GOLD_BORDER = '#C8A040'
+
+const CELL_SHADOW = '0 3px 5px rgba(30,20,4,0.3), inset 0 1px 0 rgba(255,255,180,0.2), inset 0 -2px 0 rgba(0,0,0,0.18)'
+const CELL_SHADOW_HOVER = '0 7px 16px rgba(30,20,4,0.45), inset 0 1px 0 rgba(255,255,180,0.25), inset 0 -2px 0 rgba(0,0,0,0.2)'
+const CELL_SHADOW_PLAYED = '0 1px 3px rgba(30,20,4,0.15)'
 
 function getYouTubeEmbedUrl(url) {
   if (!url) return null
@@ -58,32 +59,30 @@ function MediaDisplay({ question }) {
   return <video src={question.media_url} controls autoPlay className="max-h-56 max-w-full rounded-lg mx-auto mt-4" />
 }
 
-function QuizCell({ q, isPlayed, colIdx, onClick }) {
-  const col = COL_STYLES[colIdx % COL_STYLES.length]
-  const gradient = isPlayed ? 'linear-gradient(145deg, #8A8A72, #9E9E88)' : col.gradient
-  const textColor = isPlayed ? 'rgba(255,255,255,0.4)' : col.text
-  const shadow = isPlayed ? PLAYED_SHADOW : CELL_SHADOW
+function QuizCell({ q, isPlayed, onClick }) {
+  const bg = isPlayed ? CELL_BG_PLAYED : CELL_BG_ACTIVE
+  const shadow = isPlayed ? CELL_SHADOW_PLAYED : CELL_SHADOW
 
   return (
     <button
       onClick={onClick}
       style={{
-        background: gradient,
-        color: textColor,
+        background: bg,
+        color: isPlayed ? 'rgba(240,235,200,0.35)' : TEXT_CREAM,
         border: 'none',
-        borderRadius: '8px',
+        borderRadius: '6px',
         boxShadow: shadow,
-        fontFamily: FONT,
-        fontWeight: 800,
-        fontSize: 'clamp(0.8rem, 1.8vw, 1.5rem)',
+        fontFamily: FONT_DISPLAY,
+        fontWeight: 400,
+        fontSize: 'clamp(0.9rem, 2vw, 1.6rem)',
         cursor: isPlayed ? 'default' : 'pointer',
-        transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+        transition: 'transform 0.1s ease, box-shadow 0.1s ease',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
         height: '100%',
-        textShadow: isPlayed ? 'none' : '0 1px 3px rgba(0,0,0,0.35)',
+        textShadow: isPlayed ? 'none' : '0 1px 4px rgba(0,0,0,0.4)',
         letterSpacing: '0.02em',
         padding: 0,
       }}
@@ -149,12 +148,13 @@ export default function GameBoard({ quiz, onBack }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: T.outerBg,
-        color: T.frameLight,
-        fontFamily: FONT,
+        background: WOOD_BG,
+        color: GOLD,
+        fontFamily: FONT_BODY,
         fontSize: '1rem',
         letterSpacing: '0.14em',
         textTransform: 'uppercase',
+        textShadow: '0 1px 4px rgba(0,0,0,0.6)',
       }}>
         Lade Spielfeld…
       </div>
@@ -163,7 +163,7 @@ export default function GameBoard({ quiz, onBack }) {
 
   return (
     <div style={{
-      background: T.outerBg,
+      background: WOOD_BG,
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
@@ -172,7 +172,7 @@ export default function GameBoard({ quiz, onBack }) {
       overflow: 'hidden',
     }}>
 
-      {/* Compact nav */}
+      {/* Top nav */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -183,26 +183,29 @@ export default function GameBoard({ quiz, onBack }) {
         <button
           onClick={onBack}
           style={{
-            color: T.frameLight,
+            color: GOLD,
             background: 'transparent',
             border: 'none',
-            fontFamily: FONT,
+            fontFamily: FONT_BODY,
             fontWeight: 700,
             fontSize: '0.75rem',
             letterSpacing: '0.1em',
             cursor: 'pointer',
             textTransform: 'uppercase',
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
           }}
         >
           ← Zurück
         </button>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{
-            color: T.goldLine,
-            fontFamily: FONT,
+            color: GOLD,
+            fontFamily: FONT_BODY,
             fontSize: '0.7rem',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
           }}>
             Teams:
           </span>
@@ -215,15 +218,18 @@ export default function GameBoard({ quiz, onBack }) {
                 height: '26px',
                 borderRadius: '6px',
                 background: teamCount === n
-                  ? 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)'
+                  ? 'linear-gradient(175deg, #4E6418, #344C0C)'
                   : 'rgba(255,255,255,0.07)',
-                color: teamCount === n ? T.textLight : T.goldLine,
-                border: `1px solid ${teamCount === n ? T.cardBorder : 'rgba(183,139,61,0.35)'}`,
-                fontFamily: FONT,
+                color: teamCount === n ? TEXT_CREAM : GOLD,
+                border: `1px solid ${teamCount === n ? GOLD_BORDER : 'rgba(184,136,48,0.35)'}`,
+                borderBottom: teamCount === n ? `3px solid #1E3006` : '1px solid rgba(184,136,48,0.35)',
+                fontFamily: FONT_BODY,
                 fontWeight: 800,
                 fontSize: '0.78rem',
                 cursor: 'pointer',
                 transition: 'all 0.1s ease',
+                boxShadow: teamCount === n ? '0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,160,0.15)' : 'none',
+                textShadow: teamCount === n ? '0 1px 2px rgba(0,0,0,0.4)' : 'none',
               }}
             >
               {n}
@@ -236,23 +242,24 @@ export default function GameBoard({ quiz, onBack }) {
       <div style={{
         flex: 1,
         minHeight: 0,
-        background: T.boardBg,
-        border: `12px solid ${T.frameDark}`,
-        boxShadow: `inset 0 0 0 3px ${T.frameLight}, 0 12px 40px rgba(0,0,0,0.55), 0 3px 10px rgba(0,0,0,0.3)`,
+        background: BOARD_BG,
+        border: `12px solid ${FRAME_DARK}`,
+        boxShadow: `inset 0 0 0 3px ${FRAME_LIGHT}, 0 14px 50px rgba(0,0,0,0.65), 0 4px 12px rgba(0,0,0,0.35)`,
         borderRadius: '20px',
         display: 'flex',
         flexDirection: 'column',
-        padding: '18px 22px 16px',
+        padding: '16px 20px 14px',
         overflow: 'hidden',
       }}>
+
         {colCount === 0 ? (
           <div style={{
             flex: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: T.goldLine,
-            fontFamily: FONT,
+            color: GOLD,
+            fontFamily: FONT_BODY,
             fontSize: '0.95rem',
             letterSpacing: '0.06em',
           }}>
@@ -260,16 +267,16 @@ export default function GameBoard({ quiz, onBack }) {
           </div>
         ) : (
           <>
-            {/* Title */}
-            <div style={{ flexShrink: 0, textAlign: 'center', padding: '4px 0 14px' }}>
+            {/* Quiz title */}
+            <div style={{ flexShrink: 0, textAlign: 'center', padding: '2px 0 12px' }}>
               <h1 style={{
-                fontFamily: FONT,
-                fontWeight: 900,
-                fontSize: 'clamp(1.1rem, 3vw, 2.4rem)',
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 400,
+                fontSize: 'clamp(1.2rem, 3.5vw, 2.6rem)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: T.textDark,
-                textShadow: '0 1px 4px rgba(70,45,10,0.18)',
+                letterSpacing: '0.08em',
+                color: TEXT_DARK,
+                textShadow: '0 1px 0 rgba(255,240,160,0.3), 0 2px 6px rgba(0,0,0,0.2)',
                 margin: 0,
                 lineHeight: 1.1,
               }}>
@@ -277,55 +284,55 @@ export default function GameBoard({ quiz, onBack }) {
               </h1>
             </div>
 
-            {/* Category + question grid */}
+            {/* Grid */}
             <div style={{
               flex: 1,
               minHeight: 0,
               display: 'grid',
               gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))`,
               gridTemplateRows: `auto repeat(${rowCount}, 1fr)`,
-              gap: '6px',
+              gap: '5px',
             }}>
               {/* Category headers */}
-              {categories.map((cat, ci) => {
-                const col = COL_STYLES[ci % COL_STYLES.length]
-                return (
-                  <div
-                    key={cat.id}
-                    style={{
-                      background: col.gradient,
-                      color: col.text,
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '10px 6px',
-                      textAlign: 'center',
-                      fontFamily: FONT,
-                      fontWeight: 800,
-                      fontSize: 'clamp(0.48rem, 1.05vw, 0.8rem)',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      textShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                      boxShadow: CELL_SHADOW,
-                      lineHeight: 1.2,
-                      minHeight: '60px',
-                    }}
-                  >
-                    {cat.name}
-                  </div>
-                )
-              })}
+              {categories.map(cat => (
+                <div
+                  key={cat.id}
+                  style={{
+                    background: CAT_HEADER_BG,
+                    color: TEXT_CREAM,
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '10px 6px',
+                    textAlign: 'center',
+                    fontFamily: FONT_BODY,
+                    fontWeight: 800,
+                    fontSize: 'clamp(0.48rem, 1.05vw, 0.78rem)',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.45)',
+                    boxShadow: CELL_SHADOW,
+                    lineHeight: 1.2,
+                    minHeight: '58px',
+                  }}
+                >
+                  {cat.name}
+                </div>
+              ))}
 
               {/* Question cells */}
               {Array.from({ length: rowCount }, (_, rowIdx) =>
-                categories.map((cat, ci) => {
+                categories.map(cat => {
                   const q = questions.find(q => q.category_id === cat.id && q.position === rowIdx)
                   if (!q) {
                     return (
                       <div
                         key={`${cat.id}-${rowIdx}`}
-                        style={{ background: 'rgba(38,52,21,0.05)', borderRadius: '8px' }}
+                        style={{
+                          background: 'rgba(30,48,6,0.08)',
+                          borderRadius: '6px',
+                        }}
                       />
                     )
                   }
@@ -334,7 +341,6 @@ export default function GameBoard({ quiz, onBack }) {
                       key={`${cat.id}-${rowIdx}`}
                       q={q}
                       isPlayed={played.has(q.id)}
-                      colIdx={ci}
                       onClick={() => openQuestion(q)}
                     />
                   )
@@ -345,7 +351,7 @@ export default function GameBoard({ quiz, onBack }) {
             {/* Team score cards */}
             <div style={{
               flexShrink: 0,
-              marginTop: '14px',
+              marginTop: '12px',
               display: 'grid',
               gridTemplateColumns: `repeat(${teamCount}, minmax(0, 1fr))`,
               gap: '10px',
@@ -354,10 +360,13 @@ export default function GameBoard({ quiz, onBack }) {
                 <div
                   key={i}
                   style={{
-                    background: 'rgba(247, 235, 207, 0.72)',
-                    border: `1px solid ${T.cardBorder}`,
-                    borderRadius: '14px',
-                    boxShadow: '0 2px 8px rgba(70,45,10,0.18)',
+                    background: [
+                      'linear-gradient(172deg, rgba(255,240,170,0.6) 0%, rgba(230,210,130,0.55) 100%)',
+                      BOARD_BG,
+                    ].join(', '),
+                    border: `1.5px solid ${GOLD_BORDER}`,
+                    borderRadius: '12px',
+                    boxShadow: '0 3px 10px rgba(30,20,4,0.22), inset 0 1px 0 rgba(255,255,200,0.4)',
                     padding: '10px 12px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -365,7 +374,6 @@ export default function GameBoard({ quiz, onBack }) {
                     gap: '6px',
                   }}
                 >
-                  {/* Team name */}
                   {editingTeam === i ? (
                     <input
                       autoFocus
@@ -376,10 +384,10 @@ export default function GameBoard({ quiz, onBack }) {
                       style={{
                         background: 'transparent',
                         border: 'none',
-                        borderBottom: `1px solid ${T.goldLine}`,
+                        borderBottom: `1.5px solid ${GOLD}`,
                         outline: 'none',
-                        color: T.textDark,
-                        fontFamily: FONT,
+                        color: TEXT_DARK,
+                        fontFamily: FONT_BODY,
                         fontWeight: 800,
                         fontSize: '0.68rem',
                         textTransform: 'uppercase',
@@ -393,14 +401,14 @@ export default function GameBoard({ quiz, onBack }) {
                     <span
                       onClick={() => setEditingTeam(i)}
                       style={{
-                        color: T.textDark,
-                        fontFamily: FONT,
+                        color: TEXT_DARK,
+                        fontFamily: FONT_BODY,
                         fontWeight: 800,
                         fontSize: '0.68rem',
                         textTransform: 'uppercase',
                         letterSpacing: '0.1em',
                         cursor: 'pointer',
-                        borderBottom: `1px solid ${T.goldLine}`,
+                        borderBottom: `1.5px solid ${GOLD}`,
                         paddingBottom: '3px',
                         width: '100%',
                         textAlign: 'center',
@@ -411,40 +419,46 @@ export default function GameBoard({ quiz, onBack }) {
                     </span>
                   )}
 
-                  {/* Score row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 0' }}>
                     <button
                       onClick={() => adjustScore(i, -(activeQuestion?.points ?? 100))}
                       style={{
-                        width: '38px',
-                        height: '38px',
+                        width: '36px',
+                        height: '36px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(145deg, #F8EBCB, #E7CA82)',
-                        border: `1px solid ${T.cardBorder}`,
-                        color: T.textDark,
-                        fontSize: '1.25rem',
+                        background: 'linear-gradient(175deg, #E8D490, #C8A840)',
+                        border: `1.5px solid ${GOLD_BORDER}`,
+                        borderBottom: '3px solid #8A6418',
+                        color: TEXT_DARK,
+                        fontSize: '1.2rem',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(70,45,10,0.2), inset 0 1px 0 rgba(255,255,255,0.6)',
+                        boxShadow: '0 2px 6px rgba(30,20,4,0.28), inset 0 1px 0 rgba(255,255,200,0.5)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         lineHeight: 1,
                         flexShrink: 0,
-                        fontFamily: FONT,
+                        fontFamily: FONT_BODY,
+                        textShadow: '0 1px 1px rgba(255,255,200,0.4)',
+                        transition: 'transform 0.08s',
                       }}
+                      onMouseDown={e => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.borderBottomWidth = '1px' }}
+                      onMouseUp={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
                     >
                       −
                     </button>
 
                     <span style={{
-                      color: T.textDark,
-                      fontFamily: FONT,
-                      fontWeight: 900,
-                      fontSize: 'clamp(1.2rem, 2.2vw, 1.9rem)',
+                      color: TEXT_DARK,
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 400,
+                      fontSize: 'clamp(1.3rem, 2.4vw, 2rem)',
                       minWidth: '2.8rem',
                       textAlign: 'center',
                       lineHeight: 1,
+                      textShadow: '0 1px 2px rgba(255,240,160,0.3)',
                     }}>
                       {scores[i]}
                     </span>
@@ -452,23 +466,29 @@ export default function GameBoard({ quiz, onBack }) {
                     <button
                       onClick={() => adjustScore(i, activeQuestion?.points ?? 100)}
                       style={{
-                        width: '38px',
-                        height: '38px',
+                        width: '36px',
+                        height: '36px',
                         borderRadius: '50%',
-                        background: 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
-                        border: `1px solid ${T.cardBorder}`,
-                        color: T.textLight,
-                        fontSize: '1.25rem',
+                        background: 'linear-gradient(175deg, #5A7020, #384C0E)',
+                        border: `1.5px solid ${GOLD_BORDER}`,
+                        borderBottom: '3px solid #1E3006',
+                        color: TEXT_CREAM,
+                        fontSize: '1.2rem',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        boxShadow: '0 2px 5px rgba(70,45,10,0.3), inset 0 1px 0 rgba(255,255,255,0.2)',
+                        boxShadow: '0 2px 6px rgba(30,20,4,0.35), inset 0 1px 0 rgba(255,255,160,0.2)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         lineHeight: 1,
                         flexShrink: 0,
-                        fontFamily: FONT,
+                        fontFamily: FONT_BODY,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                        transition: 'transform 0.08s',
                       }}
+                      onMouseDown={e => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.borderBottomWidth = '1px' }}
+                      onMouseUp={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
                     >
                       +
                     </button>
@@ -491,14 +511,14 @@ export default function GameBoard({ quiz, onBack }) {
             justifyContent: 'center',
             zIndex: 50,
             padding: '24px',
-            background: 'rgba(0,0,0,0.65)',
+            background: 'rgba(0,0,0,0.72)',
           }}
           onClick={e => e.target === e.currentTarget && closeQuestion()}
         >
           <div style={{
-            background: T.boardBg,
-            border: `6px solid ${T.frameDark}`,
-            boxShadow: `inset 0 0 0 2px ${T.frameLight}, 0 24px 60px rgba(0,0,0,0.7)`,
+            background: BOARD_BG,
+            border: `8px solid ${FRAME_DARK}`,
+            boxShadow: `inset 0 0 0 2px ${FRAME_LIGHT}, 0 28px 70px rgba(0,0,0,0.75)`,
             borderRadius: '18px',
             width: '100%',
             maxWidth: '640px',
@@ -510,37 +530,38 @@ export default function GameBoard({ quiz, onBack }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '16px 24px',
-              borderBottom: `2px solid ${T.goldLine}`,
-              background: 'rgba(70,45,10,0.06)',
-              borderRadius: '10px 10px 0 0',
+              padding: '14px 22px',
+              borderBottom: `2px solid ${GOLD}`,
+              background: 'rgba(30,48,6,0.06)',
+              borderRadius: '8px 8px 0 0',
             }}>
               <span style={{
-                fontFamily: FONT,
-                fontWeight: 800,
-                color: T.textDark,
-                fontSize: '1.5rem',
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 400,
+                color: TEXT_DARK,
+                fontSize: '1.6rem',
                 letterSpacing: '0.04em',
+                textShadow: '0 1px 3px rgba(0,0,0,0.15)',
               }}>
                 {activeQuestion.points} Punkte
               </span>
               <button
                 onClick={closeQuestion}
                 style={{
-                  color: 'rgba(38,52,21,0.45)',
+                  color: 'rgba(30,48,6,0.45)',
                   background: 'none',
                   border: 'none',
                   fontSize: '1.3rem',
                   cursor: 'pointer',
                   lineHeight: 1,
-                  fontFamily: FONT,
+                  fontFamily: FONT_BODY,
                 }}
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ padding: '28px 24px 24px' }}>
+            <div style={{ padding: '28px 24px 22px' }}>
               <div style={{
                 textAlign: 'center',
                 minHeight: '80px',
@@ -549,8 +570,8 @@ export default function GameBoard({ quiz, onBack }) {
                 justifyContent: 'center',
                 fontSize: 'clamp(1rem, 2.4vw, 1.35rem)',
                 fontWeight: 700,
-                color: T.textDark,
-                fontFamily: FONT,
+                color: TEXT_DARK,
+                fontFamily: FONT_BODY,
                 lineHeight: 1.5,
               }}>
                 {activeQuestion.question_text}
@@ -562,40 +583,56 @@ export default function GameBoard({ quiz, onBack }) {
                 <button
                   onClick={() => setShowAnswer(true)}
                   style={{
-                    marginTop: '24px',
+                    marginTop: '22px',
                     width: '100%',
                     padding: '14px',
                     borderRadius: '10px',
-                    background: 'linear-gradient(145deg, #4F5F16, #6A7822)',
-                    color: T.textLight,
-                    border: 'none',
-                    fontFamily: FONT,
+                    background: 'linear-gradient(175deg, #4E6418, #344C0C)',
+                    color: TEXT_CREAM,
+                    border: `1px solid ${FRAME_DARK}`,
+                    borderBottom: '4px solid #1E3006',
+                    fontFamily: FONT_BODY,
                     fontWeight: 800,
-                    fontSize: '0.9rem',
+                    fontSize: '0.88rem',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                     cursor: 'pointer',
                     boxShadow: CELL_SHADOW,
-                    transition: 'opacity 0.1s ease',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                    transition: 'transform 0.08s, border-bottom-width 0.08s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.borderBottomWidth = '4px'
+                    e.currentTarget.style.paddingTop = '14px'
+                  }}
+                  onMouseDown={e => {
+                    e.currentTarget.style.transform = 'translateY(2px)'
+                    e.currentTarget.style.borderBottomWidth = '1px'
+                    e.currentTarget.style.paddingTop = '17px'
+                  }}
+                  onMouseUp={e => {
+                    e.currentTarget.style.transform = 'none'
+                    e.currentTarget.style.borderBottomWidth = '4px'
+                    e.currentTarget.style.paddingTop = '14px'
+                  }}
                 >
                   Antwort anzeigen
                 </button>
               ) : (
                 <>
                   <div style={{
-                    marginTop: '18px',
+                    marginTop: '16px',
                     padding: '16px 20px',
                     borderRadius: '10px',
                     textAlign: 'center',
                     fontSize: 'clamp(0.95rem, 2vw, 1.2rem)',
                     fontWeight: 700,
-                    color: T.textDark,
-                    background: 'rgba(183,139,61,0.14)',
-                    border: `1.5px solid ${T.cardBorder}`,
-                    fontFamily: FONT,
+                    color: TEXT_DARK,
+                    background: `rgba(184,136,48,0.14)`,
+                    border: `1.5px solid ${GOLD_BORDER}`,
+                    fontFamily: FONT_BODY,
                     lineHeight: 1.5,
                   }}>
                     {activeQuestion.answer_text}
@@ -604,7 +641,7 @@ export default function GameBoard({ quiz, onBack }) {
                   <MediaDisplay question={activeQuestion} />
 
                   <div style={{
-                    marginTop: '18px',
+                    marginTop: '16px',
                     display: 'flex',
                     gap: '8px',
                     flexWrap: 'wrap',
@@ -617,15 +654,22 @@ export default function GameBoard({ quiz, onBack }) {
                           style={{
                             padding: '8px 14px',
                             borderRadius: '8px',
-                            background: 'linear-gradient(145deg, #F8EBCB, #E7CA82)',
-                            color: T.textDark,
-                            border: `1px solid ${T.cardBorder}`,
-                            fontFamily: FONT,
+                            background: 'linear-gradient(175deg, #E0CC80, #C4A840)',
+                            color: TEXT_DARK,
+                            border: `1px solid ${GOLD_BORDER}`,
+                            borderBottom: '3px solid #8A6820',
+                            fontFamily: FONT_BODY,
                             fontWeight: 700,
-                            fontSize: '0.75rem',
+                            fontSize: '0.72rem',
                             cursor: 'pointer',
                             letterSpacing: '0.04em',
+                            boxShadow: '0 2px 5px rgba(30,20,4,0.25)',
+                            textShadow: '0 1px 1px rgba(255,255,160,0.3)',
+                            transition: 'transform 0.08s',
                           }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.borderBottomWidth = '1px' }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
                         >
                           {teamNames[i]} −
                         </button>
@@ -634,15 +678,22 @@ export default function GameBoard({ quiz, onBack }) {
                           style={{
                             padding: '8px 14px',
                             borderRadius: '8px',
-                            background: 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
-                            color: T.textLight,
-                            border: `1px solid ${T.cardBorder}`,
-                            fontFamily: FONT,
+                            background: 'linear-gradient(175deg, #5A7020, #384C0E)',
+                            color: TEXT_CREAM,
+                            border: `1px solid ${GOLD_BORDER}`,
+                            borderBottom: '3px solid #1E3006',
+                            fontFamily: FONT_BODY,
                             fontWeight: 700,
-                            fontSize: '0.75rem',
+                            fontSize: '0.72rem',
                             cursor: 'pointer',
                             letterSpacing: '0.04em',
+                            boxShadow: '0 2px 5px rgba(30,20,4,0.35)',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                            transition: 'transform 0.08s',
                           }}
+                          onMouseDown={e => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.borderBottomWidth = '1px' }}
+                          onMouseUp={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderBottomWidth = '3px' }}
                         >
                           {teamNames[i]} +
                         </button>
@@ -658,17 +709,17 @@ export default function GameBoard({ quiz, onBack }) {
                       padding: '12px',
                       borderRadius: '10px',
                       background: 'transparent',
-                      border: `1.5px solid ${T.goldLine}`,
-                      color: T.textDark,
-                      fontFamily: FONT,
+                      border: `1.5px solid ${GOLD}`,
+                      color: TEXT_DARK,
+                      fontFamily: FONT_BODY,
                       fontWeight: 700,
-                      fontSize: '0.88rem',
+                      fontSize: '0.86rem',
                       letterSpacing: '0.08em',
                       textTransform: 'uppercase',
                       cursor: 'pointer',
                       transition: 'background 0.1s ease',
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(183,139,61,0.12)'}
+                    onMouseEnter={e => e.currentTarget.style.background = `rgba(184,136,48,0.12)`}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     Frage abschließen

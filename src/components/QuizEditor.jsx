@@ -67,6 +67,8 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
   const [editingCatId, setEditingCatId] = useState(null)
   const [draggingCell, setDraggingCell] = useState(null)
   const [dragOverCell, setDragOverCell] = useState(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showBackConfirm, setShowBackConfirm] = useState(false)
 
   useEffect(() => {
     if (!isNew && initialQuiz?.id) loadData(initialQuiz.id)
@@ -101,30 +103,36 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
   function addRow() {
     const last = rowDefaults[rowDefaults.length - 1] ?? 0
     setRowDefaults(prev => [...prev, last + 100])
+    setIsDirty(true)
   }
 
   function removeRow(rowIdx) {
     if (questions.some(q => q.position === rowIdx)) return
     setRowDefaults(prev => prev.filter((_, i) => i !== rowIdx))
     setQuestions(prev => prev.map(q => q.position > rowIdx ? { ...q, position: q.position - 1 } : q))
+    setIsDirty(true)
   }
 
   function updateRowDefault(rowIdx, value) {
     setRowDefaults(prev => prev.map((v, i) => i === rowIdx ? value : v))
+    setIsDirty(true)
   }
 
   function addCategory() {
     setCategories(prev => [...prev, makeNewCategory(quizId, prev.length)])
+    setIsDirty(true)
   }
 
   function removeCategory(catId) {
     if (!confirm('Kategorie und alle Fragen darin löschen?')) return
     setCategories(prev => prev.filter(c => c.id !== catId))
     setQuestions(prev => prev.filter(q => q.category_id !== catId))
+    setIsDirty(true)
   }
 
   function updateCategoryName(catId, name) {
     setCategories(prev => prev.map(c => c.id === catId ? { ...c, name } : c))
+    setIsDirty(true)
   }
 
   function handleCellClick(cat, rowIdx) {
@@ -140,11 +148,13 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
       const filtered = prev.filter(q => q.id !== editingQuestion.id)
       return [...filtered, editingQuestion]
     })
+    setIsDirty(true)
     setEditingQuestion(null)
   }
 
   function deleteEditingQuestion() {
     setQuestions(prev => prev.filter(q => q.id !== editingQuestion.id))
+    setIsDirty(true)
     setEditingQuestion(null)
   }
 
@@ -186,6 +196,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
     })
     setDraggingCell(null)
     setDragOverCell(null)
+    setIsDirty(true)
   }
 
   function handleDragEnd() {
@@ -263,6 +274,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         for (const q of toDelete) await supabase.from('questions').delete().eq('id', q.id)
       }
 
+      setIsDirty(false)
       onBack()
     } catch (err) {
       setSaveError(err.message)
@@ -303,7 +315,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
       {/* Top nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px', flexShrink: 0 }}>
         <button
-          onClick={onBack}
+          onClick={() => isDirty ? setShowBackConfirm(true) : onBack()}
           style={{
             color: T.frameLight,
             background: 'transparent',
@@ -322,7 +334,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         <input
           type="text"
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={e => { setTitle(e.target.value); setIsDirty(true) }}
           placeholder="Quiz-Titel…"
           style={{
             flex: 1,
@@ -367,7 +379,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         <input
           type="text"
           value={creatorName}
-          onChange={e => setCreatorName(e.target.value)}
+          onChange={e => { setCreatorName(e.target.value); setIsDirty(true) }}
           placeholder="Ersteller *"
           style={{
             background: 'transparent',
@@ -384,7 +396,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         <input
           type="text"
           value={description}
-          onChange={e => setDescription(e.target.value)}
+          onChange={e => { setDescription(e.target.value); setIsDirty(true) }}
           placeholder="Beschreibung (optional)"
           style={{
             background: 'transparent',
@@ -729,6 +741,117 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
           </div>
         )}
       </div>
+
+      {/* Unsaved changes confirmation */}
+      {showBackConfirm && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 60,
+          padding: '24px',
+          background: 'rgba(0,0,0,0.7)',
+        }}>
+          <div style={{
+            background: T.boardBg,
+            border: `6px solid ${T.frameDark}`,
+            boxShadow: `inset 0 0 0 2px ${T.frameLight}, 0 24px 60px rgba(0,0,0,0.7)`,
+            borderRadius: '18px',
+            width: '100%',
+            maxWidth: '420px',
+            padding: '28px 28px 22px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+          }}>
+            <div style={{
+              fontFamily: FONT,
+              fontWeight: 900,
+              fontSize: '1rem',
+              color: T.textDark,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}>
+              Ungespeicherte Änderungen
+            </div>
+            <div style={{
+              fontFamily: FONT,
+              fontSize: '0.88rem',
+              color: T.textDark,
+              opacity: 0.75,
+              lineHeight: 1.55,
+            }}>
+              Du hast Änderungen vorgenommen, die noch nicht gespeichert wurden. Wenn du jetzt zurückgehst, gehen sie verloren.
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowBackConfirm(false)}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  color: T.textDark,
+                  border: `1.5px solid ${T.goldLine}`,
+                  fontFamily: FONT,
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                Weiter bearbeiten
+              </button>
+              <button
+                onClick={async () => {
+                  setShowBackConfirm(false)
+                  await save()
+                }}
+                disabled={saving}
+                style={{
+                  flex: 1,
+                  background: saving ? 'rgba(124,139,46,0.4)' : 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
+                  color: T.textLight,
+                  border: `1px solid ${T.cardBorder}`,
+                  fontFamily: FONT,
+                  fontWeight: 800,
+                  fontSize: '0.78rem',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  boxShadow: CELL_SHADOW,
+                }}
+              >
+                {saving ? 'Speichert…' : 'Speichern & zurück'}
+              </button>
+              <button
+                onClick={() => { setShowBackConfirm(false); onBack() }}
+                style={{
+                  flex: 1,
+                  background: 'rgba(180,40,40,0.1)',
+                  color: '#c0392b',
+                  border: '1px solid rgba(180,40,40,0.3)',
+                  fontFamily: FONT,
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                }}
+              >
+                Verlassen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Question Modal */}
       {editingQuestion && (
