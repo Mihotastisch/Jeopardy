@@ -1,6 +1,31 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
+const T = {
+  outerBg: '#343716',
+  boardBg: '#F7EBCF',
+  frameDark: '#7A4A12',
+  frameLight: '#B87925',
+  textDark: '#263415',
+  textLight: '#FFF7E8',
+  goldLine: '#B78B3D',
+  cardBorder: '#D6AF62',
+}
+
+const COL_STYLES = [
+  { gradient: 'linear-gradient(145deg, #4F5F16, #6A7822)', text: '#FFF7E8' },
+  { gradient: 'linear-gradient(145deg, #6F8C5D, #8EAA78)', text: '#FFF7E8' },
+  { gradient: 'linear-gradient(145deg, #C8BD55, #DDD477)', text: '#FFF7E8' },
+  { gradient: 'linear-gradient(145deg, #E4B85A, #F3D28B)', text: '#FFF7E8' },
+  { gradient: 'linear-gradient(145deg, #9DA11C, #B4B83A)', text: '#FFF7E8' },
+  { gradient: 'linear-gradient(145deg, #EAA000, #F5B400)', text: '#FFF7E8' },
+]
+
+const CELL_SHADOW = '0 3px 4px rgba(70, 45, 10, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.12)'
+const CELL_SHADOW_HOVER = '0 7px 14px rgba(70, 45, 10, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 4px rgba(0, 0, 0, 0.15)'
+
+const FONT = "'Poppins', system-ui, sans-serif"
+
 function makeNewQuestion(categoryId, quizId, position, defaultPoints) {
   return {
     id: `new-${Date.now()}-${Math.random()}`,
@@ -34,13 +59,14 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
   const [categories, setCategories] = useState([])
   const [questions, setQuestions] = useState([])
   const [quizId, setQuizId] = useState(initialQuiz?.id ?? null)
-  // rowDefaults[i] = default point value for row i (editable label, not a constraint)
   const [rowDefaults, setRowDefaults] = useState([100, 200, 300, 400, 500])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState(null)
   const [editingCatId, setEditingCatId] = useState(null)
+  const [draggingCell, setDraggingCell] = useState(null)
+  const [dragOverCell, setDragOverCell] = useState(null)
 
   useEffect(() => {
     if (!isNew && initialQuiz?.id) loadData(initialQuiz.id)
@@ -57,7 +83,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
     setCategories(cats)
     setQuestions(qs)
 
-    // Build row defaults from existing questions' points per position
     const maxPos = qs.length > 0 ? Math.max(...qs.map(q => q.position)) : 4
     const rows = Array.from({ length: Math.max(maxPos + 1, 5) }, (_, i) => {
       const q = qs.find(q => q.position === i)
@@ -81,7 +106,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
   function removeRow(rowIdx) {
     if (questions.some(q => q.position === rowIdx)) return
     setRowDefaults(prev => prev.filter((_, i) => i !== rowIdx))
-    // Shift down positions of questions below this row
     setQuestions(prev => prev.map(q => q.position > rowIdx ? { ...q, position: q.position - 1 } : q))
   }
 
@@ -124,6 +148,51 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
     setEditingQuestion(null)
   }
 
+  function handleDragStart(e, catId, rowIdx) {
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingCell({ catId, rowIdx })
+  }
+
+  function handleDragOver(e, catId, rowIdx) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverCell?.catId !== catId || dragOverCell?.rowIdx !== rowIdx) {
+      setDragOverCell({ catId, rowIdx })
+    }
+  }
+
+  function handleDrop(e, targetCatId, targetRowIdx) {
+    e.preventDefault()
+    if (!draggingCell) return
+    const { catId: srcCatId, rowIdx: srcRowIdx } = draggingCell
+    if (srcCatId === targetCatId && srcRowIdx === targetRowIdx) {
+      setDraggingCell(null)
+      setDragOverCell(null)
+      return
+    }
+    const srcQ = getQuestion(srcCatId, srcRowIdx)
+    const tgtQ = getQuestion(targetCatId, targetRowIdx)
+    setQuestions(prev => {
+      const others = prev.filter(q => q.id !== srcQ?.id && q.id !== tgtQ?.id)
+      if (srcQ) {
+        const usesDefault = srcQ.points === rowDefaults[srcRowIdx]
+        others.push({ ...srcQ, category_id: targetCatId, position: targetRowIdx, points: usesDefault ? (rowDefaults[targetRowIdx] ?? srcQ.points) : srcQ.points })
+      }
+      if (tgtQ) {
+        const usesDefault = tgtQ.points === rowDefaults[targetRowIdx]
+        others.push({ ...tgtQ, category_id: srcCatId, position: srcRowIdx, points: usesDefault ? (rowDefaults[srcRowIdx] ?? tgtQ.points) : tgtQ.points })
+      }
+      return others
+    })
+    setDraggingCell(null)
+    setDragOverCell(null)
+  }
+
+  function handleDragEnd() {
+    setDraggingCell(null)
+    setDragOverCell(null)
+  }
+
   async function save() {
     if (!title.trim()) return alert('Bitte Titel eingeben')
     if (!creatorName.trim()) return alert('Bitte Ersteller-Name eingeben')
@@ -149,7 +218,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         if (error) throw error
       }
 
-      // Upsert categories
       const catIdMap = {}
       for (let i = 0; i < categories.length; i++) {
         const cat = { ...categories[i], quiz_id: currentQuizId, position: i }
@@ -165,7 +233,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         }
       }
 
-      // Delete removed categories
       if (!isNew) {
         const allKeptDbIds = Object.values(catIdMap)
         const { data: dbCats } = await supabase.from('categories').select('id').eq('quiz_id', currentQuizId)
@@ -173,7 +240,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         for (const c of toDelete) await supabase.from('categories').delete().eq('id', c.id)
       }
 
-      // Upsert questions (flat, position is already set per question)
       const keptQIds = []
       for (const q of questions) {
         const resolvedCatId = catIdMap[q.category_id] || q.category_id
@@ -191,7 +257,6 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
         }
       }
 
-      // Delete removed questions
       if (!isNew) {
         const { data: dbQs } = await supabase.from('questions').select('id').eq('quiz_id', currentQuizId)
         const toDelete = (dbQs || []).filter(q => !keptQIds.includes(q.id))
@@ -208,18 +273,50 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
 
   if (!loaded) {
     return (
-      <div className="min-h-screen bg-[#f0e6d0] flex items-center justify-center text-[#5a4a30] text-xl">
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: T.outerBg,
+        color: T.frameLight,
+        fontFamily: FONT,
+        fontSize: '1rem',
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+      }}>
         Lade…
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f0e6d0] flex flex-col">
+    <div style={{
+      background: T.outerBg,
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '10px 14px 14px',
+      gap: '8px',
+    }}>
 
-      {/* Top bar */}
-      <div className="bg-[#e8ddc8] border-b border-[#c4b48e] px-6 py-3 flex items-center gap-4">
-        <button onClick={onBack} className="text-[#5a4a30] hover:text-[#1a1508] text-sm font-medium shrink-0">
+      {/* Top nav */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 4px', flexShrink: 0 }}>
+        <button
+          onClick={onBack}
+          style={{
+            color: T.frameLight,
+            background: 'transparent',
+            border: 'none',
+            fontFamily: FONT,
+            fontWeight: 700,
+            fontSize: '0.75rem',
+            letterSpacing: '0.1em',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            flexShrink: 0,
+          }}
+        >
           ← Zurück
         </button>
         <input
@@ -227,82 +324,197 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Quiz-Titel…"
-          className="flex-1 bg-transparent text-[#1a1508] font-black text-xl outline-none border-b-2 border-transparent focus:border-[#4a5c30] transition-colors uppercase tracking-wide"
-          style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: '0.08em', fontWeight: 900 }}
+          style={{
+            flex: 1,
+            background: 'transparent',
+            color: T.textLight,
+            fontFamily: FONT,
+            fontWeight: 900,
+            fontSize: 'clamp(1rem, 2.5vw, 1.6rem)',
+            outline: 'none',
+            border: 'none',
+            borderBottom: `2px solid ${T.goldLine}`,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            paddingBottom: '3px',
+          }}
         />
         <button
           onClick={save}
           disabled={saving}
-          className="bg-[#4a5c30] hover:bg-[#3a4c20] disabled:opacity-50 text-white font-bold px-6 py-2 rounded-lg text-sm transition-all shrink-0 uppercase tracking-wide"
+          style={{
+            background: saving ? 'rgba(124,139,46,0.4)' : 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
+            color: T.textLight,
+            border: `1px solid ${T.cardBorder}`,
+            fontFamily: FONT,
+            fontWeight: 800,
+            fontSize: '0.75rem',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            padding: '8px 18px',
+            borderRadius: '8px',
+            cursor: saving ? 'not-allowed' : 'pointer',
+            flexShrink: 0,
+            boxShadow: CELL_SHADOW,
+          }}
         >
-          {saving ? 'Speichert…' : '💾 Speichern'}
+          {saving ? 'Speichert…' : 'Speichern'}
         </button>
       </div>
 
-      {saveError && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-3 text-sm">
-          Fehler: {saveError}
-        </div>
-      )}
-
-      {/* Meta row */}
-      <div className="bg-[#ece0c8] border-b border-[#c4b48e] px-6 py-3 flex gap-4">
+      {/* Meta strip */}
+      <div style={{ display: 'flex', gap: '16px', padding: '0 4px', flexShrink: 0 }}>
         <input
           type="text"
           value={creatorName}
           onChange={e => setCreatorName(e.target.value)}
           placeholder="Ersteller *"
-          className="bg-transparent text-[#3a2e1a] text-sm outline-none border-b border-transparent focus:border-[#4a5c30] transition-colors w-40"
+          style={{
+            background: 'transparent',
+            color: T.goldLine,
+            fontFamily: FONT,
+            fontSize: '0.75rem',
+            outline: 'none',
+            border: 'none',
+            borderBottom: `1px solid rgba(183,139,61,0.4)`,
+            width: '140px',
+            paddingBottom: '2px',
+          }}
         />
         <input
           type="text"
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Beschreibung (optional)"
-          className="bg-transparent text-[#3a2e1a] text-sm outline-none border-b border-transparent focus:border-[#4a5c30] transition-colors flex-1"
+          style={{
+            background: 'transparent',
+            color: T.goldLine,
+            fontFamily: FONT,
+            fontSize: '0.75rem',
+            outline: 'none',
+            border: 'none',
+            borderBottom: `1px solid rgba(183,139,61,0.4)`,
+            flex: 1,
+            paddingBottom: '2px',
+          }}
         />
       </div>
 
-      {/* Board area */}
-      <div className="flex-1 min-h-0 p-4 overflow-auto">
-        <div className="h-full flex flex-col">
+      {saveError && (
+        <div style={{
+          background: 'rgba(200,50,50,0.15)',
+          border: '1px solid rgba(200,50,50,0.4)',
+          color: '#ff9999',
+          fontFamily: FONT,
+          fontSize: '0.8rem',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          flexShrink: 0,
+        }}>
+          Fehler: {saveError}
+        </div>
+      )}
 
-          <div className="flex gap-3 mb-3 shrink-0">
-            <button
-              onClick={addCategory}
-              className="bg-[#4a5c30] hover:bg-[#3a4c20] text-white font-bold px-4 py-2 rounded-lg text-sm transition-all"
-            >
-              + Kategorie
-            </button>
-            <button
-              onClick={addRow}
-              className="bg-[#faf5e8] hover:bg-[#ede3c8] text-[#4a5c30] font-bold px-4 py-2 rounded-lg text-sm transition-all border border-[#c4b48e]"
-            >
-              + Reihe
-            </button>
+      {/* Board frame */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        background: T.boardBg,
+        border: `12px solid ${T.frameDark}`,
+        boxShadow: `inset 0 0 0 3px ${T.frameLight}, 0 12px 40px rgba(0,0,0,0.55), 0 3px 10px rgba(0,0,0,0.3)`,
+        borderRadius: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '14px 18px 16px',
+        overflow: 'hidden',
+      }}>
+
+        {/* Control buttons */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexShrink: 0 }}>
+          <button
+            onClick={addCategory}
+            style={{
+              background: 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
+              color: T.textLight,
+              border: `1px solid ${T.cardBorder}`,
+              fontFamily: FONT,
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: CELL_SHADOW,
+            }}
+          >
+            + Kategorie
+          </button>
+          <button
+            onClick={addRow}
+            style={{
+              background: 'linear-gradient(145deg, #F8EBCB, #E7CA82)',
+              color: T.textDark,
+              border: `1px solid ${T.cardBorder}`,
+              fontFamily: FONT,
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: CELL_SHADOW,
+            }}
+          >
+            + Reihe
+          </button>
+        </div>
+
+        {categories.length === 0 ? (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: T.goldLine,
+            fontFamily: FONT,
+            fontSize: '0.95rem',
+            letterSpacing: '0.06em',
+          }}>
+            Füge eine Kategorie hinzu, um zu beginnen.
           </div>
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: 'grid',
+              gridTemplateColumns: `64px repeat(${categories.length}, minmax(0, 1fr))`,
+              gridTemplateRows: `auto repeat(${rowCount}, 1fr)`,
+              gap: '6px',
+              overflow: 'auto',
+            }}
+          >
+            {/* Corner */}
+            <div style={{ background: 'rgba(38,52,21,0.15)', borderRadius: '8px' }} />
 
-          {categories.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-[#8a7860]">
-              Füge eine Kategorie hinzu, um zu beginnen.
-            </div>
-          ) : (
-            <div
-              className="flex-1 min-h-0 rounded-2xl overflow-hidden border-2 border-[#c4b48e] shadow-xl"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `80px repeat(${categories.length}, minmax(0, 1fr))`,
-                gridTemplateRows: `auto repeat(${rowCount}, 1fr)`,
-              }}
-            >
-              {/* Corner */}
-              <div className="bg-[#3a4c20] border-r border-b border-[#2a3c10]" />
-
-              {/* Category headers */}
-              {categories.map((cat, ci) => (
+            {/* Category headers */}
+            {categories.map((cat, ci) => {
+              const col = COL_STYLES[ci % COL_STYLES.length]
+              return (
                 <div
                   key={cat.id}
-                  className={`bg-[#4a5c30] flex items-center gap-1 px-2 py-3 ${ci < categories.length - 1 ? 'border-r border-[#3a4c20]' : ''}`}
+                  style={{
+                    background: col.gradient,
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '8px 6px',
+                    boxShadow: CELL_SHADOW,
+                    minHeight: '56px',
+                  }}
                 >
                   {editingCatId === cat.id ? (
                     <input
@@ -311,145 +523,386 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
                       onChange={e => updateCategoryName(cat.id, e.target.value)}
                       onBlur={() => setEditingCatId(null)}
                       onKeyDown={e => e.key === 'Enter' && setEditingCatId(null)}
-                      className="flex-1 bg-[#3a4c20] text-white font-black text-sm uppercase tracking-wide text-center outline-none rounded px-1"
-                      style={{ fontFamily: 'Georgia, serif' }}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(0,0,0,0.2)',
+                        color: col.text,
+                        fontFamily: FONT,
+                        fontWeight: 800,
+                        fontSize: '0.7rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        textAlign: 'center',
+                        outline: 'none',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '2px 4px',
+                      }}
                     />
                   ) : (
                     <span
-                      className="flex-1 text-white font-black text-xs uppercase tracking-widest text-center cursor-pointer hover:text-yellow-200 transition-colors truncate"
-                      style={{ fontFamily: "'Oswald', 'Arial Narrow', sans-serif", letterSpacing: '0.08em' }}
                       onClick={() => setEditingCatId(cat.id)}
                       title="Klicken zum Umbenennen"
+                      style={{
+                        flex: 1,
+                        color: col.text,
+                        fontFamily: FONT,
+                        fontWeight: 800,
+                        fontSize: 'clamp(0.45rem, 1vw, 0.72rem)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                        lineHeight: 1.2,
+                      }}
                     >
                       {cat.name}
                     </span>
                   )}
                   <button
                     onClick={() => removeCategory(cat.id)}
-                    className="text-white/40 hover:text-red-300 text-xs shrink-0 transition-colors"
                     title="Kategorie löschen"
+                    style={{
+                      color: 'rgba(255,255,255,0.4)',
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '0.65rem',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      lineHeight: 1,
+                      padding: '2px',
+                      fontFamily: FONT,
+                    }}
                   >✕</button>
                 </div>
-              ))}
+              )
+            })}
 
-              {/* Rows */}
-              {Array.from({ length: rowCount }, (_, rowIdx) => {
-                const isLast = rowIdx === rowCount - 1
-                const hasQuestions = questions.some(q => q.position === rowIdx)
-                return [
-                  // Row label (editable default points)
-                  <div
-                    key={`label-${rowIdx}`}
-                    className={`bg-[#4a5c30] flex flex-col items-center justify-center gap-1 border-r border-[#3a4c20] ${!isLast ? 'border-b border-[#3a4c20]' : ''}`}
-                  >
-                    <input
-                      type="number"
-                      value={rowDefaults[rowIdx] ?? ''}
-                      onChange={e => updateRowDefault(rowIdx, parseInt(e.target.value) || 0)}
-                      className="w-14 bg-transparent text-white font-black text-base text-center outline-none border-b border-white/30 focus:border-white transition-colors"
-                      style={{ fontFamily: 'Georgia, serif' }}
-                      title="Standardpunkte für diese Reihe"
-                    />
-                    {!hasQuestions && rowCount > 1 && (
-                      <button
-                        onClick={() => removeRow(rowIdx)}
-                        className="text-white/30 hover:text-red-300 text-xs transition-colors"
-                        title="Reihe entfernen"
-                      >✕</button>
-                    )}
-                  </div>,
+            {/* Rows */}
+            {Array.from({ length: rowCount }, (_, rowIdx) => {
+              const hasQuestions = questions.some(q => q.position === rowIdx)
+              return [
+                // Row label
+                <div
+                  key={`label-${rowIdx}`}
+                  style={{
+                    background: 'radial-gradient(circle at 30% 25%, #4F5F16, #2A3C10)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: CELL_SHADOW,
+                    padding: '4px',
+                  }}
+                >
+                  <input
+                    type="number"
+                    value={rowDefaults[rowIdx] ?? ''}
+                    onChange={e => updateRowDefault(rowIdx, parseInt(e.target.value) || 0)}
+                    title="Standardpunkte für diese Reihe"
+                    style={{
+                      width: '52px',
+                      background: 'transparent',
+                      color: T.textLight,
+                      fontFamily: FONT,
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                      textAlign: 'center',
+                      outline: 'none',
+                      border: 'none',
+                      borderBottom: '1px solid rgba(255,255,255,0.3)',
+                    }}
+                  />
+                  {!hasQuestions && rowCount > 1 && (
+                    <button
+                      onClick={() => removeRow(rowIdx)}
+                      title="Reihe entfernen"
+                      style={{
+                        color: 'rgba(255,255,255,0.3)',
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '0.65rem',
+                        cursor: 'pointer',
+                        fontFamily: FONT,
+                        lineHeight: 1,
+                      }}
+                    >✕</button>
+                  )}
+                </div>,
 
-                  // Question cells
-                  ...categories.map((cat, ci) => {
-                    const q = getQuestion(cat.id, rowIdx)
-                    const isFilled = q && (q.question_text || q.answer_text)
-                    return (
-                      <button
-                        key={`${cat.id}-${rowIdx}`}
-                        onClick={() => handleCellClick(cat, rowIdx)}
-                        className={`
-                          w-full h-full text-sm transition-all font-medium flex flex-col items-center justify-center gap-1
-                          ${ci < categories.length - 1 ? 'border-r' : ''} ${!isLast ? 'border-b' : ''}
-                          border-[#d4c8a8]
-                          ${isFilled
-                            ? 'bg-[#faf5e8] hover:bg-[#f0e6cc] text-[#2a1f0e]'
-                            : 'bg-[#f5f0e4] hover:bg-[#ede3c8] text-[#8a7860]'}
-                        `}
-                      >
-                        {isFilled ? (
-                          <>
-                            <span
-                              className="font-black text-lg text-[#4a5c30]"
-                              style={{ fontFamily: 'Georgia, serif' }}
-                            >
-                              {q.points}
-                            </span>
-                            <span className="px-2 text-xs text-center line-clamp-2 text-[#5a4a30]">
-                              {q.question_text}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-2xl text-[#c4b48e] hover:text-[#4a5c30] transition-colors">+</span>
-                        )}
-                      </button>
-                    )
-                  }),
-                ]
-              })}
-            </div>
-          )}
-        </div>
+                // Question cells
+                ...categories.map((cat, ci) => {
+                  const q = getQuestion(cat.id, rowIdx)
+                  const isFilled = q && (q.question_text || q.answer_text)
+                  const col = COL_STYLES[ci % COL_STYLES.length]
+                  const isDraggingThis = draggingCell?.catId === cat.id && draggingCell?.rowIdx === rowIdx
+                  const isDragOver = dragOverCell?.catId === cat.id && dragOverCell?.rowIdx === rowIdx
+                  return (
+                    <button
+                      key={`${cat.id}-${rowIdx}`}
+                      draggable={!!isFilled}
+                      onClick={() => !draggingCell && handleCellClick(cat, rowIdx)}
+                      onDragStart={e => handleDragStart(e, cat.id, rowIdx)}
+                      onDragOver={e => handleDragOver(e, cat.id, rowIdx)}
+                      onDrop={e => handleDrop(e, cat.id, rowIdx)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        background: isFilled ? col.gradient : 'rgba(38,52,21,0.08)',
+                        border: isDragOver
+                          ? `2px solid ${T.frameLight}`
+                          : isFilled ? 'none' : `1px dashed rgba(183,139,61,0.35)`,
+                        borderRadius: '8px',
+                        boxShadow: isDragOver
+                          ? `0 0 0 3px ${T.goldLine}, ${CELL_SHADOW}`
+                          : isFilled ? CELL_SHADOW : 'none',
+                        cursor: isFilled ? 'grab' : 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        padding: '4px',
+                        width: '100%',
+                        height: '100%',
+                        opacity: isDraggingThis ? 0.35 : 1,
+                        transition: 'transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease',
+                      }}
+                      onMouseEnter={e => {
+                        if (isDraggingThis) return
+                        if (isFilled) {
+                          e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)'
+                          e.currentTarget.style.boxShadow = CELL_SHADOW_HOVER
+                        } else {
+                          e.currentTarget.style.background = 'rgba(38,52,21,0.15)'
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'none'
+                        e.currentTarget.style.boxShadow = isDragOver ? `0 0 0 3px ${T.goldLine}, ${CELL_SHADOW}` : isFilled ? CELL_SHADOW : 'none'
+                        e.currentTarget.style.background = isFilled ? col.gradient : 'rgba(38,52,21,0.08)'
+                      }}
+                    >
+                      {isFilled ? (
+                        <>
+                          <span style={{
+                            color: T.textLight,
+                            fontFamily: FONT,
+                            fontWeight: 800,
+                            fontSize: 'clamp(0.7rem, 1.5vw, 1.1rem)',
+                            textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+                            letterSpacing: '0.02em',
+                          }}>
+                            {q.points}
+                          </span>
+                          <span style={{
+                            color: 'rgba(255,255,255,0.75)',
+                            fontFamily: FONT,
+                            fontSize: 'clamp(0.4rem, 0.75vw, 0.6rem)',
+                            textAlign: 'center',
+                            lineHeight: 1.3,
+                            padding: '0 4px',
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}>
+                            {q.question_text}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{
+                          color: 'rgba(183,139,61,0.5)',
+                          fontSize: '1.4rem',
+                          fontFamily: FONT,
+                          fontWeight: 300,
+                          lineHeight: 1,
+                        }}>+</span>
+                      )}
+                    </button>
+                  )
+                }),
+              ]
+            })}
+          </div>
+        )}
       </div>
 
       {/* Edit Question Modal */}
       {editingQuestion && (
         <div
-          className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            padding: '24px',
+            background: 'rgba(0,0,0,0.65)',
+          }}
           onClick={e => e.target === e.currentTarget && setEditingQuestion(null)}
         >
-          <div className="bg-[#faf5e8] border-2 border-[#c4b48e] rounded-2xl w-full max-w-lg shadow-2xl">
-            <div className="bg-[#4a5c30] rounded-t-2xl px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-white/70 text-sm font-medium">Punkte:</span>
+          <div style={{
+            background: T.boardBg,
+            border: `6px solid ${T.frameDark}`,
+            boxShadow: `inset 0 0 0 2px ${T.frameLight}, 0 24px 60px rgba(0,0,0,0.7)`,
+            borderRadius: '18px',
+            width: '100%',
+            maxWidth: '580px',
+            maxHeight: '88vh',
+            overflowY: 'auto',
+          }}>
+            {/* Modal header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 22px',
+              borderBottom: `2px solid ${T.goldLine}`,
+              background: 'rgba(70,45,10,0.06)',
+              borderRadius: '10px 10px 0 0',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontFamily: FONT,
+                  fontWeight: 700,
+                  color: T.textDark,
+                  fontSize: '0.85rem',
+                  letterSpacing: '0.06em',
+                  opacity: 0.7,
+                }}>
+                  Punkte:
+                </span>
                 <input
                   type="number"
                   value={editingQuestion.points}
                   onChange={e => setEditingQuestion(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
-                  className="w-20 bg-[#3a4c20] text-white font-black text-lg text-center rounded-lg px-2 py-1 outline-none border border-[#2a3c10] focus:border-yellow-300"
-                  style={{ fontFamily: 'Georgia, serif' }}
+                  style={{
+                    width: '72px',
+                    background: 'radial-gradient(circle at 30% 25%, #4F5F16, #2A3C10)',
+                    color: T.textLight,
+                    fontFamily: FONT,
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                    textAlign: 'center',
+                    borderRadius: '8px',
+                    padding: '6px 8px',
+                    outline: 'none',
+                    border: `1px solid ${T.cardBorder}`,
+                  }}
                 />
               </div>
-              <button onClick={() => setEditingQuestion(null)} className="text-white/60 hover:text-white text-xl">✕</button>
+              <button
+                onClick={() => setEditingQuestion(null)}
+                style={{
+                  color: 'rgba(38,52,21,0.45)',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.3rem',
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                  fontFamily: FONT,
+                }}
+              >✕</button>
             </div>
 
-            <div className="p-6 flex flex-col gap-4">
+            <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label className="text-[#5a4a30] text-xs font-bold uppercase tracking-wide block mb-1">Frage</label>
+                <label style={{
+                  fontFamily: FONT,
+                  fontWeight: 700,
+                  fontSize: '0.7rem',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: T.textDark,
+                  opacity: 0.7,
+                  display: 'block',
+                  marginBottom: '6px',
+                }}>Frage</label>
                 <textarea
                   value={editingQuestion.question_text}
                   onChange={e => setEditingQuestion(prev => ({ ...prev, question_text: e.target.value }))}
                   rows={3}
                   placeholder="Fragetext…"
-                  className="w-full bg-[#f0e8d0] text-[#1a1508] rounded-lg p-3 text-sm border border-[#c4b48e] focus:border-[#4a5c30] outline-none resize-none"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(70,45,10,0.06)',
+                    color: T.textDark,
+                    fontFamily: FONT,
+                    fontSize: '0.9rem',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    outline: 'none',
+                    border: `1.5px solid ${T.cardBorder}`,
+                    resize: 'none',
+                    boxSizing: 'border-box',
+                    lineHeight: 1.5,
+                  }}
                 />
               </div>
               <div>
-                <label className="text-[#5a4a30] text-xs font-bold uppercase tracking-wide block mb-1">Antwort</label>
+                <label style={{
+                  fontFamily: FONT,
+                  fontWeight: 700,
+                  fontSize: '0.7rem',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: T.textDark,
+                  opacity: 0.7,
+                  display: 'block',
+                  marginBottom: '6px',
+                }}>Antwort</label>
                 <textarea
                   value={editingQuestion.answer_text}
                   onChange={e => setEditingQuestion(prev => ({ ...prev, answer_text: e.target.value }))}
                   rows={2}
                   placeholder="Antworttext…"
-                  className="w-full bg-[#eef4e0] text-[#1a1508] rounded-lg p-3 text-sm border border-[#b8c8a0] focus:border-[#4a5c30] outline-none resize-none"
+                  style={{
+                    width: '100%',
+                    background: 'rgba(183,139,61,0.1)',
+                    color: T.textDark,
+                    fontFamily: FONT,
+                    fontSize: '0.9rem',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    outline: 'none',
+                    border: `1.5px solid ${T.cardBorder}`,
+                    resize: 'none',
+                    boxSizing: 'border-box',
+                    lineHeight: 1.5,
+                  }}
                 />
               </div>
-              <div className="flex gap-3 items-end">
+
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
                 <div>
-                  <label className="text-[#5a4a30] text-xs font-bold uppercase tracking-wide block mb-1">Medientyp</label>
+                  <label style={{
+                    fontFamily: FONT,
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: T.textDark,
+                    opacity: 0.7,
+                    display: 'block',
+                    marginBottom: '6px',
+                  }}>Medientyp</label>
                   <select
                     value={editingQuestion.media_type}
                     onChange={e => setEditingQuestion(prev => ({ ...prev, media_type: e.target.value }))}
-                    className="bg-[#f0e8d0] text-[#1a1508] rounded-lg p-2 text-sm border border-[#c4b48e] focus:border-[#4a5c30] outline-none"
+                    style={{
+                      background: 'rgba(70,45,10,0.06)',
+                      color: T.textDark,
+                      fontFamily: FONT,
+                      fontSize: '0.85rem',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      outline: 'none',
+                      border: `1.5px solid ${T.cardBorder}`,
+                    }}
                   >
                     <option value="none">Kein Medium</option>
                     <option value="image">Bild</option>
@@ -457,8 +910,18 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
                   </select>
                 </div>
                 {editingQuestion.media_type !== 'none' && (
-                  <div className="flex-1">
-                    <label className="text-[#5a4a30] text-xs font-bold uppercase tracking-wide block mb-1">
+                  <div style={{ flex: 1 }}>
+                    <label style={{
+                      fontFamily: FONT,
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: T.textDark,
+                      opacity: 0.7,
+                      display: 'block',
+                      marginBottom: '6px',
+                    }}>
                       {editingQuestion.media_type === 'image' ? 'Bild-URL' : 'Video-URL'}
                     </label>
                     <input
@@ -466,32 +929,80 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
                       value={editingQuestion.media_url}
                       onChange={e => setEditingQuestion(prev => ({ ...prev, media_url: e.target.value }))}
                       placeholder="https://…"
-                      className="w-full bg-[#f0e8d0] text-[#1a1508] rounded-lg p-2 text-sm border border-[#c4b48e] focus:border-[#4a5c30] outline-none"
+                      style={{
+                        width: '100%',
+                        background: 'rgba(70,45,10,0.06)',
+                        color: T.textDark,
+                        fontFamily: FONT,
+                        fontSize: '0.85rem',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        outline: 'none',
+                        border: `1.5px solid ${T.cardBorder}`,
+                        boxSizing: 'border-box',
+                      }}
                     />
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
                 {!editingQuestion.isNew && (
                   <button
                     onClick={deleteEditingQuestion}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold px-4 py-2 rounded-lg text-sm transition-all"
+                    style={{
+                      background: 'rgba(180,40,40,0.1)',
+                      color: '#c0392b',
+                      border: '1px solid rgba(180,40,40,0.3)',
+                      fontFamily: FONT,
+                      fontWeight: 700,
+                      fontSize: '0.8rem',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                    }}
                   >
-                    🗑 Löschen
+                    Löschen
                   </button>
                 )}
                 <button
                   onClick={() => setEditingQuestion(null)}
-                  className="flex-1 bg-[#e8ddc8] hover:bg-[#ddd0b4] text-[#1a1508] font-bold py-2 rounded-lg text-sm transition-all border border-[#c4b48e]"
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    color: T.textDark,
+                    border: `1.5px solid ${T.goldLine}`,
+                    fontFamily: FONT,
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                  }}
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={saveEditingQuestion}
-                  className="flex-1 bg-[#4a5c30] hover:bg-[#3a4c20] text-white font-bold py-2 rounded-lg text-sm transition-all"
+                  style={{
+                    flex: 1,
+                    background: 'radial-gradient(circle at 30% 25%, #7C8B2E, #34460F)',
+                    color: T.textLight,
+                    border: `1px solid ${T.cardBorder}`,
+                    fontFamily: FONT,
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    boxShadow: CELL_SHADOW,
+                  }}
                 >
-                  ✓ Übernehmen
+                  Übernehmen
                 </button>
               </div>
             </div>
