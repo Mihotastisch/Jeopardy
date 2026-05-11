@@ -35,28 +35,40 @@ function getYouTubeEmbedUrl(url) {
   return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : null
 }
 
-function MediaDisplay({ question }) {
-  if (question.media_type === 'none' || !question.media_url) return null
-  if (question.media_type === 'image') {
+function MediaDisplay({ type, url, onImageClick }) {
+  if (!type || type === 'none' || !url) return null
+  if (type === 'image') {
     return (
       <img
-        src={question.media_url}
+        src={url}
         alt=""
-        className="max-h-56 max-w-full object-contain rounded-lg mx-auto mt-4"
+        onClick={() => onImageClick && onImageClick(url)}
+        style={{
+          display: 'block',
+          maxHeight: '220px',
+          maxWidth: '100%',
+          objectFit: 'contain',
+          borderRadius: '10px',
+          margin: '14px auto 0',
+          cursor: onImageClick ? 'zoom-in' : 'default',
+        }}
         onError={e => { e.target.style.display = 'none' }}
       />
     )
   }
-  const embedUrl = getYouTubeEmbedUrl(question.media_url)
+  const embedUrl = getYouTubeEmbedUrl(url)
   if (embedUrl) {
     return (
-      <div className="mt-4 w-full aspect-video max-w-lg mx-auto">
+      <div style={{ marginTop: '14px', width: '100%', aspectRatio: '16/9', maxWidth: '480px', margin: '14px auto 0' }}>
         <iframe src={embedUrl} title="Video" allow="autoplay; encrypted-media"
-          allowFullScreen className="w-full h-full rounded-lg" />
+          allowFullScreen style={{ width: '100%', height: '100%', borderRadius: '10px', border: 'none' }} />
       </div>
     )
   }
-  return <video src={question.media_url} controls autoPlay className="max-h-56 max-w-full rounded-lg mx-auto mt-4" />
+  return (
+    <video src={url} controls autoPlay
+      style={{ display: 'block', maxHeight: '220px', maxWidth: '100%', borderRadius: '10px', margin: '14px auto 0' }} />
+  )
 }
 
 function QuizCell({ q, isPlayed, onClick }) {
@@ -113,6 +125,7 @@ export default function GameBoard({ quiz, onBack }) {
   const [teamNames, setTeamNames] = useState(['Team 1', 'Team 2', 'Team 3', 'Team 4'])
   const [scores, setScores] = useState([0, 0, 0, 0])
   const [editingTeam, setEditingTeam] = useState(null)
+  const [lightboxUrl, setLightboxUrl] = useState(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -500,6 +513,36 @@ export default function GameBoard({ quiz, onBack }) {
         )}
       </div>
 
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(0,0,0,0.88)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              borderRadius: '12px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+            }}
+          />
+        </div>
+      )}
+
       {/* Question modal */}
       {activeQuestion && (
         <div
@@ -577,7 +620,13 @@ export default function GameBoard({ quiz, onBack }) {
                 {activeQuestion.question_text}
               </div>
 
-              {!showAnswer && <MediaDisplay question={activeQuestion} />}
+              {!showAnswer && (
+                <MediaDisplay
+                  type={activeQuestion.media_type}
+                  url={activeQuestion.media_url}
+                  onImageClick={setLightboxUrl}
+                />
+              )}}
 
               {!showAnswer ? (
                 <button
@@ -638,7 +687,11 @@ export default function GameBoard({ quiz, onBack }) {
                     {activeQuestion.answer_text}
                   </div>
 
-                  <MediaDisplay question={activeQuestion} />
+                  <MediaDisplay
+                    type={activeQuestion.answer_media_type}
+                    url={activeQuestion.answer_media_url}
+                    onImageClick={setLightboxUrl}
+                  />
 
                   <div style={{
                     marginTop: '16px',

@@ -37,8 +37,74 @@ function makeNewQuestion(categoryId, quizId, position, defaultPoints) {
     position,
     media_type: 'none',
     media_url: '',
+    answer_media_type: 'none',
+    answer_media_url: '',
     isNew: true,
   }
+}
+
+function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange }) {
+  const labelStyle = {
+    fontFamily: FONT,
+    fontWeight: 700,
+    fontSize: '0.7rem',
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: '#263415',
+    opacity: 0.7,
+    display: 'block',
+    marginBottom: '6px',
+  }
+  return (
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+      <div>
+        <label style={labelStyle}>{label} – Medientyp</label>
+        <select
+          value={mediaType}
+          onChange={e => onTypeChange(e.target.value)}
+          style={{
+            background: 'rgba(70,45,10,0.06)',
+            color: '#263415',
+            fontFamily: FONT,
+            fontSize: '0.85rem',
+            borderRadius: '8px',
+            padding: '8px 10px',
+            outline: 'none',
+            border: `1.5px solid #D6AF62`,
+          }}
+        >
+          <option value="none">Kein Medium</option>
+          <option value="image">Bild</option>
+          <option value="video">Video</option>
+        </select>
+      </div>
+      {mediaType !== 'none' && (
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>
+            {mediaType === 'image' ? 'Bild-URL' : 'Video-URL'}
+          </label>
+          <input
+            type="text"
+            value={mediaUrl}
+            onChange={e => onUrlChange(e.target.value)}
+            placeholder="https://…"
+            style={{
+              width: '100%',
+              background: 'rgba(70,45,10,0.06)',
+              color: '#263415',
+              fontFamily: FONT,
+              fontSize: '0.85rem',
+              borderRadius: '8px',
+              padding: '8px 10px',
+              outline: 'none',
+              border: `1.5px solid #D6AF62`,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 function makeNewCategory(quizId, pos) {
@@ -966,6 +1032,15 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
                   }}
                 />
               </div>
+
+              <MediaTypeRow
+                label="Frage"
+                mediaType={editingQuestion.media_type ?? 'none'}
+                mediaUrl={editingQuestion.media_url ?? ''}
+                onTypeChange={v => setEditingQuestion(prev => ({ ...prev, media_type: v }))}
+                onUrlChange={v => setEditingQuestion(prev => ({ ...prev, media_url: v }))}
+              />
+
               <div>
                 <label style={{
                   fontFamily: FONT,
@@ -1000,74 +1075,13 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{
-                    fontFamily: FONT,
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: T.textDark,
-                    opacity: 0.7,
-                    display: 'block',
-                    marginBottom: '6px',
-                  }}>Medientyp</label>
-                  <select
-                    value={editingQuestion.media_type}
-                    onChange={e => setEditingQuestion(prev => ({ ...prev, media_type: e.target.value }))}
-                    style={{
-                      background: 'rgba(70,45,10,0.06)',
-                      color: T.textDark,
-                      fontFamily: FONT,
-                      fontSize: '0.85rem',
-                      borderRadius: '8px',
-                      padding: '8px 10px',
-                      outline: 'none',
-                      border: `1.5px solid ${T.cardBorder}`,
-                    }}
-                  >
-                    <option value="none">Kein Medium</option>
-                    <option value="image">Bild</option>
-                    <option value="video">Video</option>
-                  </select>
-                </div>
-                {editingQuestion.media_type !== 'none' && (
-                  <div style={{ flex: 1 }}>
-                    <label style={{
-                      fontFamily: FONT,
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      color: T.textDark,
-                      opacity: 0.7,
-                      display: 'block',
-                      marginBottom: '6px',
-                    }}>
-                      {editingQuestion.media_type === 'image' ? 'Bild-URL' : 'Video-URL'}
-                    </label>
-                    <input
-                      type="text"
-                      value={editingQuestion.media_url}
-                      onChange={e => setEditingQuestion(prev => ({ ...prev, media_url: e.target.value }))}
-                      placeholder="https://…"
-                      style={{
-                        width: '100%',
-                        background: 'rgba(70,45,10,0.06)',
-                        color: T.textDark,
-                        fontFamily: FONT,
-                        fontSize: '0.85rem',
-                        borderRadius: '8px',
-                        padding: '8px 10px',
-                        outline: 'none',
-                        border: `1.5px solid ${T.cardBorder}`,
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+              <MediaTypeRow
+                label="Antwort"
+                mediaType={editingQuestion.answer_media_type ?? 'none'}
+                mediaUrl={editingQuestion.answer_media_url ?? ''}
+                onTypeChange={v => setEditingQuestion(prev => ({ ...prev, answer_media_type: v }))}
+                onUrlChange={v => setEditingQuestion(prev => ({ ...prev, answer_media_url: v }))}
+              />
 
               <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
                 {!editingQuestion.isNew && (

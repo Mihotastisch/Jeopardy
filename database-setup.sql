@@ -28,10 +28,18 @@ CREATE TABLE IF NOT EXISTS questions (
   answer_text   TEXT    NOT NULL,
   points        INTEGER NOT NULL DEFAULT 100,
   position      INTEGER NOT NULL DEFAULT 0,
-  media_type    TEXT    NOT NULL DEFAULT 'none'
-                CHECK (media_type IN ('none', 'image', 'video')),
-  media_url     TEXT    DEFAULT ''
+  media_type         TEXT    NOT NULL DEFAULT 'none'
+                     CHECK (media_type IN ('none', 'image', 'video')),
+  media_url          TEXT    DEFAULT '',
+  answer_media_type  TEXT    NOT NULL DEFAULT 'none'
+                     CHECK (answer_media_type IN ('none', 'image', 'video')),
+  answer_media_url   TEXT    DEFAULT ''
 );
+
+-- Migration für bestehende Datenbanken (nur nötig wenn Tabelle bereits existiert)
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS answer_media_type TEXT NOT NULL DEFAULT 'none'
+  CHECK (answer_media_type IN ('none', 'image', 'video'));
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS answer_media_url TEXT DEFAULT '';
 
 -- 2. Berechtigungen setzen (WICHTIG – ohne diesen Block funktioniert die App nicht)
 
