@@ -626,7 +626,7 @@ export default function GameBoard({ quiz, onBack }) {
                   url={activeQuestion.media_url}
                   onImageClick={setLightboxUrl}
                 />
-              )}}
+              )}
 
               {!showAnswer ? (
                 <button
