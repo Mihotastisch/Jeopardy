@@ -150,7 +150,7 @@ function WoodButton({ onClick, dark = false, children, style = {} }) {
   )
 }
 
-export default function QuizList({ onPlay, onCreate, onEdit }) {
+export default function QuizList({ onPlay, onCreate, onEdit, onWheel }) {
   const [quizzes, setQuizzes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -237,8 +237,11 @@ export default function QuizList({ onPlay, onCreate, onEdit }) {
           </p>
         </div>
 
-        {/* New quiz button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '18px' }}>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+          <WoodButton onClick={onWheel} style={{ padding: '9px 20px' }}>
+            🎡 Namensrad
+          </WoodButton>
           <WoodButton onClick={onCreate} dark style={{ padding: '9px 20px' }}>
             + Neues Quiz
           </WoodButton>
