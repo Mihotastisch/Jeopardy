@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 
 const T = {
@@ -44,6 +44,11 @@ function makeNewQuestion(categoryId, quizId, position, defaultPoints) {
 }
 
 function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange }) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef(null)
+
   const labelStyle = {
     fontFamily: FONT,
     fontWeight: 700,
@@ -55,9 +60,36 @@ function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange })
     display: 'block',
     marginBottom: '6px',
   }
+
+  async function uploadFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      setUploadError('Nur Bilddateien erlaubt.')
+      return
+    }
+    setUploading(true)
+    setUploadError(null)
+    const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    const { error } = await supabase.storage.from('quiz-media').upload(path, file, { upsert: true })
+    if (error) {
+      setUploadError('Upload fehlgeschlagen: ' + error.message)
+      setUploading(false)
+      return
+    }
+    const { data } = supabase.storage.from('quiz-media').getPublicUrl(path)
+    onUrlChange(data.publicUrl)
+    setUploading(false)
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) uploadFile(file)
+  }
+
   return (
-    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-      <div>
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+      <div style={{ flexShrink: 0 }}>
         <label style={labelStyle}>{label} – Medientyp</label>
         <select
           value={mediaType}
@@ -78,11 +110,92 @@ function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange })
           <option value="video">Video</option>
         </select>
       </div>
-      {mediaType !== 'none' && (
+
+      {mediaType === 'image' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragOver ? '#7A4A12' : '#D6AF62'}`,
+              borderRadius: '10px',
+              background: dragOver ? 'rgba(70,45,10,0.1)' : mediaUrl ? 'transparent' : 'rgba(70,45,10,0.04)',
+              cursor: uploading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '72px',
+              overflow: 'hidden',
+              position: 'relative',
+              transition: 'border-color 0.15s, background 0.15s',
+            }}
+          >
+            {mediaUrl && !uploading ? (
+              <img
+                src={mediaUrl}
+                alt=""
+                style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', display: 'block' }}
+                onError={e => { e.target.style.display = 'none' }}
+              />
+            ) : (
+              <span style={{
+                fontFamily: FONT,
+                fontSize: '0.78rem',
+                color: '#7A4A12',
+                opacity: 0.6,
+                textAlign: 'center',
+                padding: '10px',
+                pointerEvents: 'none',
+              }}>
+                {uploading ? 'Hochladen…' : 'Bild hierher ziehen oder klicken'}
+              </span>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files[0]; if (f) uploadFile(f); e.target.value = '' }}
+            />
+          </div>
+
+          {uploadError && (
+            <span style={{ fontFamily: FONT, fontSize: '0.72rem', color: '#c0392b' }}>{uploadError}</span>
+          )}
+
+          {/* URL field as fallback */}
+          <div>
+            <label style={{ ...labelStyle, opacity: 0.5, marginBottom: '4px' }}>oder Bild-URL</label>
+            <input
+              type="text"
+              value={mediaUrl}
+              onChange={e => onUrlChange(e.target.value)}
+              placeholder="https://…"
+              disabled={uploading}
+              style={{
+                width: '100%',
+                background: 'rgba(70,45,10,0.06)',
+                color: '#263415',
+                fontFamily: FONT,
+                fontSize: '0.82rem',
+                borderRadius: '8px',
+                padding: '7px 10px',
+                outline: 'none',
+                border: `1.5px solid #D6AF62`,
+                boxSizing: 'border-box',
+                opacity: uploading ? 0.5 : 1,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {mediaType === 'video' && (
         <div style={{ flex: 1 }}>
-          <label style={labelStyle}>
-            {mediaType === 'image' ? 'Bild-URL' : 'Video-URL'}
-          </label>
+          <label style={labelStyle}>Video-URL</label>
           <input
             type="text"
             value={mediaUrl}

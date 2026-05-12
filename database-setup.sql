@@ -63,3 +63,19 @@ DROP POLICY IF EXISTS "pub_questions"  ON questions;
 CREATE POLICY "pub_quizzes"    ON quizzes    FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "pub_categories" ON categories FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "pub_questions"  ON questions  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 5. Storage-Bucket "quiz-media" anlegen und öffentlich zugänglich machen
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('quiz-media', 'quiz-media', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "quiz_media_insert" ON storage.objects;
+DROP POLICY IF EXISTS "quiz_media_select" ON storage.objects;
+DROP POLICY IF EXISTS "quiz_media_update" ON storage.objects;
+DROP POLICY IF EXISTS "quiz_media_delete" ON storage.objects;
+
+CREATE POLICY "quiz_media_insert" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'quiz-media');
+CREATE POLICY "quiz_media_select" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'quiz-media');
+CREATE POLICY "quiz_media_update" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'quiz-media');
+CREATE POLICY "quiz_media_delete" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'quiz-media');
