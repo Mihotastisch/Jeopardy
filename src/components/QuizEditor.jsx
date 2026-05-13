@@ -44,10 +44,36 @@ function makeNewQuestion(categoryId, quizId, position, defaultPoints) {
 }
 
 function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange }) {
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState(null)
-  const [dragOver, setDragOver] = useState(false)
-  const fileInputRef = useRef(null)
+  const fileRef0 = useRef(null)
+  const fileRef1 = useRef(null)
+  const fileRef2 = useRef(null)
+  const fileRef3 = useRef(null)
+  const fileInputRefs = [fileRef0, fileRef1, fileRef2, fileRef3]
+
+  const [uploadingIdx, setUploadingIdx] = useState(null)
+  const [uploadErrors, setUploadErrors] = useState(['', '', '', ''])
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+
+  const [imageCount, setImageCount] = useState(() => {
+    if (!mediaUrl) return 1
+    if (mediaUrl.startsWith('[')) {
+      try { return Math.max(1, Math.min(4, JSON.parse(mediaUrl).length)) } catch {}
+    }
+    return 1
+  })
+
+  const [urls, setUrls] = useState(() => {
+    if (!mediaUrl) return ['', '', '', '']
+    if (mediaUrl.startsWith('[')) {
+      try {
+        const arr = JSON.parse(mediaUrl)
+        const result = ['', '', '', '']
+        arr.slice(0, 4).forEach((u, i) => { result[i] = u || '' })
+        return result
+      } catch {}
+    }
+    return [mediaUrl, '', '', '']
+  })
 
   const labelStyle = {
     fontFamily: FONT,
@@ -58,138 +84,180 @@ function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange })
     color: '#263415',
     opacity: 0.7,
     display: 'block',
-    marginBottom: '6px',
+    marginBottom: '4px',
   }
 
-  async function uploadFile(file) {
+  const selectStyle = {
+    background: 'rgba(70,45,10,0.06)',
+    color: '#263415',
+    fontFamily: FONT,
+    fontSize: '0.85rem',
+    borderRadius: '8px',
+    padding: '8px 10px',
+    outline: 'none',
+    border: '1.5px solid #D6AF62',
+    width: '100%',
+  }
+
+  function serialize(newUrls, count) {
+    const active = newUrls.slice(0, count)
+    if (count === 1) return active[0] || ''
+    return JSON.stringify(active)
+  }
+
+  function handleCountChange(newCount) {
+    setImageCount(newCount)
+    onUrlChange(serialize(urls, newCount))
+  }
+
+  function handleUrlChange(idx, value) {
+    const newUrls = [...urls]
+    newUrls[idx] = value
+    setUrls(newUrls)
+    onUrlChange(serialize(newUrls, imageCount))
+  }
+
+  async function uploadFile(file, idx) {
     if (!file || !file.type.startsWith('image/')) {
-      setUploadError('Nur Bilddateien erlaubt.')
+      setUploadErrors(prev => { const e = [...prev]; e[idx] = 'Nur Bilddateien erlaubt.'; return e })
       return
     }
-    setUploading(true)
-    setUploadError(null)
+    setUploadingIdx(idx)
+    setUploadErrors(prev => { const e = [...prev]; e[idx] = ''; return e })
     const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const { error } = await supabase.storage.from('quiz-media').upload(path, file, { upsert: true })
     if (error) {
-      setUploadError('Upload fehlgeschlagen: ' + error.message)
-      setUploading(false)
+      setUploadErrors(prev => { const e = [...prev]; e[idx] = 'Upload fehlgeschlagen: ' + error.message; return e })
+      setUploadingIdx(null)
       return
     }
     const { data } = supabase.storage.from('quiz-media').getPublicUrl(path)
-    onUrlChange(data.publicUrl)
-    setUploading(false)
-  }
-
-  function handleDrop(e) {
-    e.preventDefault()
-    setDragOver(false)
-    const file = e.dataTransfer.files[0]
-    if (file) uploadFile(file)
+    handleUrlChange(idx, data.publicUrl)
+    setUploadingIdx(null)
   }
 
   return (
     <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-      <div style={{ flexShrink: 0 }}>
-        <label style={labelStyle}>{label} – Medientyp</label>
-        <select
-          value={mediaType}
-          onChange={e => onTypeChange(e.target.value)}
-          style={{
-            background: 'rgba(70,45,10,0.06)',
-            color: '#263415',
-            fontFamily: FONT,
-            fontSize: '0.85rem',
-            borderRadius: '8px',
-            padding: '8px 10px',
-            outline: 'none',
-            border: `1.5px solid #D6AF62`,
-          }}
-        >
-          <option value="none">Kein Medium</option>
-          <option value="image">Bild</option>
-          <option value="video">Video</option>
-        </select>
+      {/* Left: type + count selectors */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '120px' }}>
+        <div>
+          <label style={labelStyle}>{label} – Medientyp</label>
+          <select value={mediaType} onChange={e => onTypeChange(e.target.value)} style={selectStyle}>
+            <option value="none">Kein Medium</option>
+            <option value="image">Bild</option>
+            <option value="video">Video</option>
+          </select>
+        </div>
+        {mediaType === 'image' && (
+          <div>
+            <label style={labelStyle}>Anzahl Bilder</label>
+            <select value={imageCount} onChange={e => handleCountChange(Number(e.target.value))} style={selectStyle}>
+              <option value={1}>1 Bild</option>
+              <option value={2}>2 Bilder</option>
+              <option value={3}>3 Bilder</option>
+              <option value={4}>4 Bilder</option>
+            </select>
+          </div>
+        )}
       </div>
 
+      {/* Right: image slots grid */}
       {mediaType === 'image' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Drop zone */}
-          <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => !uploading && fileInputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragOver ? '#7A4A12' : '#D6AF62'}`,
-              borderRadius: '10px',
-              background: dragOver ? 'rgba(70,45,10,0.1)' : mediaUrl ? 'transparent' : 'rgba(70,45,10,0.04)',
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '72px',
-              overflow: 'hidden',
-              position: 'relative',
-              transition: 'border-color 0.15s, background 0.15s',
-            }}
-          >
-            {mediaUrl && !uploading ? (
-              <img
-                src={mediaUrl}
-                alt=""
-                style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', display: 'block' }}
-                onError={e => { e.target.style.display = 'none' }}
-              />
-            ) : (
-              <span style={{
-                fontFamily: FONT,
-                fontSize: '0.78rem',
-                color: '#7A4A12',
-                opacity: 0.6,
-                textAlign: 'center',
-                padding: '10px',
-                pointerEvents: 'none',
-              }}>
-                {uploading ? 'Hochladen…' : 'Bild hierher ziehen oder klicken'}
-              </span>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files[0]; if (f) uploadFile(f); e.target.value = '' }}
-            />
-          </div>
-
-          {uploadError && (
-            <span style={{ fontFamily: FONT, fontSize: '0.72rem', color: '#c0392b' }}>{uploadError}</span>
-          )}
-
-          {/* URL field as fallback */}
-          <div>
-            <label style={{ ...labelStyle, opacity: 0.5, marginBottom: '4px' }}>oder Bild-URL</label>
-            <input
-              type="text"
-              value={mediaUrl}
-              onChange={e => onUrlChange(e.target.value)}
-              placeholder="https://…"
-              disabled={uploading}
-              style={{
-                width: '100%',
-                background: 'rgba(70,45,10,0.06)',
-                color: '#263415',
-                fontFamily: FONT,
-                fontSize: '0.82rem',
-                borderRadius: '8px',
-                padding: '7px 10px',
-                outline: 'none',
-                border: `1.5px solid #D6AF62`,
-                boxSizing: 'border-box',
-                opacity: uploading ? 0.5 : 1,
-              }}
-            />
-          </div>
+        <div style={{
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: imageCount === 1 ? '1fr' : '1fr 1fr',
+          gap: '10px',
+        }}>
+          {Array.from({ length: imageCount }, (_, idx) => {
+            const isUploading = uploadingIdx === idx
+            const isDragOver = dragOverIdx === idx
+            const url = urls[idx]
+            return (
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {imageCount > 1 && (
+                  <label style={{ ...labelStyle, marginBottom: '2px' }}>Bild {idx + 1}</label>
+                )}
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
+                  onDragLeave={() => setDragOverIdx(null)}
+                  onDrop={e => {
+                    e.preventDefault()
+                    setDragOverIdx(null)
+                    const file = e.dataTransfer.files[0]
+                    if (file) uploadFile(file, idx)
+                  }}
+                  onClick={() => !isUploading && fileInputRefs[idx].current?.click()}
+                  style={{
+                    border: `2px dashed ${isDragOver ? '#7A4A12' : '#D6AF62'}`,
+                    borderRadius: '10px',
+                    background: isDragOver ? 'rgba(70,45,10,0.1)' : url ? 'transparent' : 'rgba(70,45,10,0.04)',
+                    cursor: isUploading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: imageCount === 1 ? '72px' : '60px',
+                    overflow: 'hidden',
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}
+                >
+                  {url && !isUploading ? (
+                    <img
+                      src={url}
+                      alt=""
+                      style={{ maxHeight: imageCount === 1 ? '140px' : '90px', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px', display: 'block' }}
+                      onError={e => { e.target.style.display = 'none' }}
+                    />
+                  ) : (
+                    <span style={{
+                      fontFamily: FONT,
+                      fontSize: '0.7rem',
+                      color: '#7A4A12',
+                      opacity: 0.6,
+                      textAlign: 'center',
+                      padding: '8px',
+                      pointerEvents: 'none',
+                    }}>
+                      {isUploading ? 'Hochladen…' : 'Hierher ziehen\noder klicken'}
+                    </span>
+                  )}
+                  <input
+                    ref={fileInputRefs[idx]}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files[0]; if (f) uploadFile(f, idx); e.target.value = '' }}
+                  />
+                </div>
+                {uploadErrors[idx] && (
+                  <span style={{ fontFamily: FONT, fontSize: '0.68rem', color: '#c0392b' }}>{uploadErrors[idx]}</span>
+                )}
+                <div>
+                  <label style={{ ...labelStyle, opacity: 0.45, marginBottom: '3px' }}>oder URL</label>
+                  <input
+                    type="text"
+                    value={url}
+                    onChange={e => handleUrlChange(idx, e.target.value)}
+                    placeholder="https://…"
+                    disabled={isUploading}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(70,45,10,0.06)',
+                      color: '#263415',
+                      fontFamily: FONT,
+                      fontSize: '0.78rem',
+                      borderRadius: '8px',
+                      padding: '6px 9px',
+                      outline: 'none',
+                      border: '1.5px solid #D6AF62',
+                      boxSizing: 'border-box',
+                      opacity: isUploading ? 0.5 : 1,
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -210,7 +278,7 @@ function MediaTypeRow({ label, mediaType, mediaUrl, onTypeChange, onUrlChange })
               borderRadius: '8px',
               padding: '8px 10px',
               outline: 'none',
-              border: `1.5px solid #D6AF62`,
+              border: '1.5px solid #D6AF62',
               boxSizing: 'border-box',
             }}
           />
@@ -1053,7 +1121,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
             boxShadow: `inset 0 0 0 2px ${T.frameLight}, 0 24px 60px rgba(0,0,0,0.7)`,
             borderRadius: '18px',
             width: '100%',
-            maxWidth: '580px',
+            maxWidth: '660px',
             maxHeight: '88vh',
             overflowY: 'auto',
           }}>
@@ -1147,6 +1215,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
               </div>
 
               <MediaTypeRow
+                key={`q-${editingQuestion.id}`}
                 label="Frage"
                 mediaType={editingQuestion.media_type ?? 'none'}
                 mediaUrl={editingQuestion.media_url ?? ''}
@@ -1189,6 +1258,7 @@ export default function QuizEditor({ quiz: initialQuiz, onBack }) {
               </div>
 
               <MediaTypeRow
+                key={`a-${editingQuestion.id}`}
                 label="Antwort"
                 mediaType={editingQuestion.answer_media_type ?? 'none'}
                 mediaUrl={editingQuestion.answer_media_url ?? ''}

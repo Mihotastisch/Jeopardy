@@ -38,22 +38,56 @@ function getYouTubeEmbedUrl(url) {
 function MediaDisplay({ type, url, onImageClick }) {
   if (!type || type === 'none' || !url) return null
   if (type === 'image') {
+    let imageUrls = [url]
+    if (url.startsWith('[')) {
+      try { imageUrls = JSON.parse(url).filter(Boolean) } catch {}
+    }
+    imageUrls = imageUrls.filter(Boolean)
+    if (imageUrls.length === 0) return null
+    if (imageUrls.length === 1) {
+      return (
+        <img
+          src={imageUrls[0]}
+          alt=""
+          onClick={() => onImageClick && onImageClick(imageUrls[0])}
+          style={{
+            display: 'block',
+            maxHeight: '220px',
+            maxWidth: '100%',
+            objectFit: 'contain',
+            borderRadius: '10px',
+            margin: '14px auto 0',
+            cursor: onImageClick ? 'zoom-in' : 'default',
+          }}
+          onError={e => { e.target.style.display = 'none' }}
+        />
+      )
+    }
     return (
-      <img
-        src={url}
-        alt=""
-        onClick={() => onImageClick && onImageClick(url)}
-        style={{
-          display: 'block',
-          maxHeight: '220px',
-          maxWidth: '100%',
-          objectFit: 'contain',
-          borderRadius: '10px',
-          margin: '14px auto 0',
-          cursor: onImageClick ? 'zoom-in' : 'default',
-        }}
-        onError={e => { e.target.style.display = 'none' }}
-      />
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '8px',
+        marginTop: '14px',
+      }}>
+        {imageUrls.map((imgUrl, i) => (
+          <img
+            key={i}
+            src={imgUrl}
+            alt=""
+            onClick={() => onImageClick && onImageClick(imgUrl)}
+            style={{
+              display: 'block',
+              width: '100%',
+              maxHeight: '160px',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              cursor: onImageClick ? 'zoom-in' : 'default',
+            }}
+            onError={e => { e.target.style.display = 'none' }}
+          />
+        ))}
+      </div>
     )
   }
   const embedUrl = getYouTubeEmbedUrl(url)
